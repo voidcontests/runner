@@ -14,6 +14,3 @@ docker run --rm \
       else \
         echo "WA"; \
       fi'
-
-rm -f ./a.out
-rm -f sample.txt
