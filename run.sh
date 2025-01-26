@@ -13,4 +13,5 @@ docker run --rm \
         echo "OK"; \
       else \
         echo "WA"; \
-      fi'
+      fi && \
+      rm /sandbox/a.out /sandbox/sample.txt'
