@@ -4,7 +4,7 @@ docker run --rm \
   --memory-swap=256m \
   --pids-limit=50 \
   --read-only \
-  -v $(pwd):/sandbox \
+  -v $(pwd)/example:/sandbox \
   runner \
   bash -c '\
       gcc /sandbox/main.c && \
