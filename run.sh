@@ -4,14 +4,11 @@ docker run --rm \
   --memory-swap=256m \
   --pids-limit=50 \
   --read-only \
+  --security-opt seccomp=seccomp.json \
+  --network=none \
   -v $(pwd)/example:/sandbox \
   runner \
   bash -c '\
       gcc /sandbox/main.c && \
-      cat /sandbox/input.txt | /sandbox/a.out > /sandbox/sample.txt && \
-      if diff -q /sandbox/sample.txt /sandbox/output.txt > /dev/null; then \
-        echo "OK"; \
-      else \
-        echo "WA"; \
-      fi && \
-      rm /sandbox/a.out /sandbox/sample.txt'
+      cat /sandbox/input.txt | timeout 5s /sandbox/a.out && \
+      find /sandbox -type f -name "a.out" -delete'

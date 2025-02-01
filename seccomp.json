@@ -1,0 +1,9 @@
+{
+    "defaultAction": "SCMP_ACT_ALLOW",
+    "syscalls": [
+        {
+            "name": "unshare",
+            "action": "SCMP_ACT_KILL"
+        }
+    ]
+}
