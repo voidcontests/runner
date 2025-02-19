@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"runner/runner"
-	"strings"
 	"time"
 )
 
@@ -55,7 +54,7 @@ func run(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var res *runner.Result
-	if strings.TrimSpace(body.Input) != "" {
+	if body.Input != "" {
 		input_path := fmt.Sprintf("./files/%s.input.txt", filebase)
 		inputtxt, err := os.Create(input_path)
 		if err != nil {
