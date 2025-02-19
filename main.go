@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"runner/runner"
+	"strings"
 	"time"
 )
 
@@ -27,7 +28,8 @@ func main() {
 func run(w http.ResponseWriter, r *http.Request) {
 	log.Printf("got request")
 	var body struct {
-		Code string `json:"code"`
+		Code  string `json:"code"`
+		Input string `json:"input"`
 	}
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
@@ -35,28 +37,54 @@ func run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := fmt.Sprintf("%d.c", time.Now().Unix())
-	filepath := fmt.Sprintf("./files/%s", filename)
-	file, err := os.Create(filepath)
+	filebase := fmt.Sprintf("%d", time.Now().Unix())
+	source_path := fmt.Sprintf("./files/%s.c", filebase)
+	source, err := os.Create(source_path)
 	if err != nil {
 		log.Printf("Failed to create file: %v\n", err)
 		http.Error(w, "Can't create file", http.StatusInternalServerError)
 		return
 	}
-	defer file.Close()
+	defer source.Close()
 
-	_, err = file.WriteString(body.Code)
+	_, err = source.WriteString(body.Code)
 	if err != nil {
 		log.Printf("Failed to write to file: %v\n", err)
 		http.Error(w, "Can't write to a file", http.StatusInternalServerError)
 		return
 	}
 
-	res, err := runner.Execute(filename)
-	if err != nil {
-		log.Printf("Failed to execute solution: %v\n", err)
-		http.Error(w, "Can't execute solution", http.StatusInternalServerError)
-		return
+	var res *runner.Result
+	if strings.TrimSpace(body.Input) != "" {
+		input_path := fmt.Sprintf("./files/%s.input.txt", filebase)
+		inputtxt, err := os.Create(input_path)
+		if err != nil {
+			log.Printf("Failed to create file: %v\n", err)
+			http.Error(w, "Can't create file", http.StatusInternalServerError)
+			return
+		}
+		defer inputtxt.Close()
+
+		_, err = inputtxt.WriteString(body.Input)
+		if err != nil {
+			log.Printf("Failed to write to file: %v\n", err)
+			http.Error(w, "Can't write to a file", http.StatusInternalServerError)
+			return
+		}
+
+		res, err = runner.ExecuteInteractive(filebase)
+		if err != nil {
+			log.Printf("Failed to execute solution: %v\n", err)
+			http.Error(w, "Can't execute solution", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		res, err = runner.Execute(filebase)
+		if err != nil {
+			log.Printf("Failed to execute solution: %v\n", err)
+			http.Error(w, "Can't execute solution", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	response := map[string]any{

@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
-	"path"
-	"strings"
 )
 
 const TIMEOUT = "5s"
@@ -16,14 +14,25 @@ type Result struct {
 	Stderr   string
 }
 
-func Execute(filename string) (*Result, error) {
-	extension := path.Ext(filename)
-	base := strings.Replace(filename, extension, "", 1)
+func Execute(filebase string) (*Result, error) {
 	command := fmt.Sprintf(
 		`gcc -o %s.out /sandbox/%s.c ; timeout %s /sandbox/%s.out ; EXIT_CODE=$? ; find /sandbox -type f -name "%s.*" -delete ; exit $EXIT_CODE`,
-		base, base, TIMEOUT, base, base,
+		filebase, filebase, TIMEOUT, filebase, filebase,
 	)
 
+	return run_isolated(command)
+}
+
+func ExecuteInteractive(filebase string) (*Result, error) {
+	command := fmt.Sprintf(
+		`gcc -o %s.out /sandbox/%s.c ; cat /sandbox/%s.input.txt | timeout %s /sandbox/%s.out ; EXIT_CODE=$? ; find /sandbox -type f -name "%s.*" -delete ; exit $EXIT_CODE`,
+		filebase, filebase, filebase, TIMEOUT, filebase, filebase,
+	)
+
+	return run_isolated(command)
+}
+
+func run_isolated(command string) (*Result, error) {
 	cmd := exec.Command("docker", "run", "--rm",
 		"--cpus=0.5",
 		"--memory=128m",
