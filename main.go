@@ -110,6 +110,10 @@ func run(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	err := os.MkdirAll("files", 0755)
+	if err != nil {
+		log.Fatalf("Failed to create `./files/` directory: %v\n", err)
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /run", run)
 
