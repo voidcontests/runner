@@ -59,6 +59,7 @@ func execute(filename string) (*Result, error) {
 }
 
 func run(w http.ResponseWriter, r *http.Request) {
+	log.Printf("got request")
 	var body struct {
 		Code string `json:"code"`
 	}
@@ -118,5 +119,5 @@ func main() {
 	mux.HandleFunc("POST /run", run)
 
 	log.Printf("Starting server on %s\n", PORT)
-	log.Fatal(http.ListenAndServe(PORT, nil))
+	log.Fatal(http.ListenAndServe(PORT, mux))
 }
