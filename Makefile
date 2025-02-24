@@ -15,7 +15,7 @@ run:
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 
 build:
-	docker build -t jus1d/void-runner:latest .
+	docker build -t jus1d/void-runner:latest -f ./docker/Dockerfile .
 
 push: build
 	docker tag jus1d/void-runner:latest jus1d/void-runner:$(GIT_COMMIT)
@@ -26,4 +26,4 @@ push: build
 clean:
 	rm -f $(TARGETS)
 
-.PHONY: all clean
+.PHONY: all clean build push run
