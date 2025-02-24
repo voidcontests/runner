@@ -21,5 +21,15 @@ jobs:
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
 
             - name: Build and push image
+              env:
+                  SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+                  SSH_USER: ${{ secrets.SSH_USER }}
+                  SSH_HOST: ${{ secrets.SSH_HOST }}
+                  REMOTE_PATH: ${{ secrets.SSH_PATH }}
               run: |
                   make push
+                  make build/runner_linux_amd64
+                  mkdir -p ~/.ssh
+                  echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+                  chmod 600 ~/.ssh/id_rsa
+                  scp -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ./build/runner_linux_amd64 ${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}
