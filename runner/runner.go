@@ -41,7 +41,7 @@ func run_isolated(command string) (*Result, error) {
 		"--read-only",
 		"--network=none",
 		"-v", "./files:/sandbox",
-		"runner",
+		"jus1d/void-runner",
 		"bash", "-c", command,
 	)
 

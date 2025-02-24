@@ -35,6 +35,7 @@ jobs:
                   REMOTE_PATH: ${{ secrets.SSH_PATH }}
                   GIT_HASH: ${{ env.GIT_HASH }}
               run: |
+                  docker pull jus1d/void-runner
                   make build/runner_linux_amd64
                   mkdir -p ~/.ssh
                   echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
