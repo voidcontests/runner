@@ -1,4 +1,4 @@
-name: Push image to DockerHub
+name: Deploy runner image and server
 
 on:
     push:
@@ -23,7 +23,11 @@ jobs:
             - name: Get Git Hash
               run: echo "GIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-            - name: Build and push image
+            - name: Build and push runner image
+              run: |
+                  make push
+
+            - name: Build runner server
               env:
                   SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
                   SSH_USER: ${{ secrets.SSH_USER }}
@@ -31,7 +35,6 @@ jobs:
                   REMOTE_PATH: ${{ secrets.SSH_PATH }}
                   GIT_HASH: ${{ env.GIT_HASH }}
               run: |
-                  make push
                   make build/runner_linux_amd64
                   mkdir -p ~/.ssh
                   echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
