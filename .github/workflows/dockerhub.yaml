@@ -20,16 +20,21 @@ jobs:
                   username: ${{ secrets.DOCKERHUB_USERNAME }}
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+            - name: Get Git Hash
+              run: echo "GIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
             - name: Build and push image
               env:
                   SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
                   SSH_USER: ${{ secrets.SSH_USER }}
                   SSH_HOST: ${{ secrets.SSH_HOST }}
                   REMOTE_PATH: ${{ secrets.SSH_PATH }}
+                  GIT_HASH: ${{ env.GIT_HASH }}
               run: |
                   make push
                   make build/runner_linux_amd64
                   mkdir -p ~/.ssh
                   echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
                   chmod 600 ~/.ssh/id_rsa
-                  scp -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ./build/runner_linux_amd64 ${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}
+                  scp -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ./build/runner_linux_amd64 ${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}/runner_linux_amd64_${GIT_HASH}
+                  ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${SSH_USER}@${SSH_HOST} "ln -sf ${REMOTE_PATH}/runner_linux_amd64_${GIT_HASH} ${REMOTE_PATH}/void.server.runner"
