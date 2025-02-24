@@ -43,3 +43,4 @@ jobs:
                   ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${SSH_USER}@${SSH_HOST} "rm -rf ./runner_linux_amd64_*"
                   scp -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ./build/runner_linux_amd64 ${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}/runner_linux_amd64_${GIT_HASH}
                   ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${SSH_USER}@${SSH_HOST} "ln -sf ${REMOTE_PATH}/runner_linux_amd64_${GIT_HASH} ${REMOTE_PATH}/void.server.runner"
+                  ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${SSH_USER}@${SSH_HOST} "sudo systemctl restart void.server.runner.service"
