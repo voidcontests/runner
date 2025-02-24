@@ -12,6 +12,17 @@ bin/runner_linux_amd64: main.go
 run:
 	docker run --rm --cpus=0.5 --memory=128m --memory-swap=256m --pids-limit=50 --read-only --security-opt seccomp=seccomp.json --network=none -v $(pwd)/example:/sandbox runner bash -c '$(COMMAND)'
 
+GIT_COMMIT := $(shell git rev-parse --short HEAD)
+
+build:
+	docker build -t jus1d/void-runner:latest .
+
+push: build
+	docker tag jus1d/void-runner:latest jus1d/void-runner:$(GIT_COMMIT)
+	@for tag in $(GIT_COMMIT) latest; do \
+		docker push jus1d/void-runner:$$tag; \
+	done
+
 clean:
 	rm -f $(TARGETS)
 
