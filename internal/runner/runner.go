@@ -14,46 +14,62 @@ type Result struct {
 	Stderr   string
 }
 
-func Clean(filebase string) error {
+// Flush removes all files by filebase - request timestamp
+func Flush(filebase string) error {
 	command := fmt.Sprintf(`find /sandbox -type f -name "%s.*" -delete`, filebase)
 
 	var err error
-	_, err = run_isolated(command)
+	_, err = isolate(command)
 	return err
 }
 
+// Compile runs compilation process within the isolated environment
 func Compile(filebase string) (bool, error) {
-	command := fmt.Sprintf(
-		`gcc -o %s.out /sandbox/%s.c`,
-		filebase, filebase,
-	)
+	command := fmt.Sprintf(`gcc -o %s.out /sandbox/%s.c`, filebase, filebase)
 
-	res, err := run_isolated(command)
+	res, err := isolate(command)
 	if err != nil {
 		return false, err
 	}
 	return res.ExitCode == 0, nil
 }
 
+// ExecuteCompiled runs compiled program within the isolated environment
+func ExecuteCompiled(filebase string) (*Result, error) {
+	command := fmt.Sprintf(`timeout %s /sandbox/%s.out`, TIMEOUT, filebase)
+
+	return isolate(command)
+}
+
+// Execute compiles and runs program within the isolated environment
 func Execute(filebase string) (*Result, error) {
 	command := fmt.Sprintf(
 		`gcc -o %s.out /sandbox/%s.c ; timeout %s /sandbox/%s.out`,
 		filebase, filebase, TIMEOUT, filebase,
 	)
 
-	return run_isolated(command)
+	return isolate(command)
 }
 
+// ExecuteInteractive compiles and runs program with provided input within the isolated environment
 func ExecuteInteractive(filebase string) (*Result, error) {
 	command := fmt.Sprintf(
 		`gcc -o %s.out /sandbox/%s.c ; cat /sandbox/%s.input.txt | timeout %s /sandbox/%s.out`,
 		filebase, filebase, filebase, TIMEOUT, filebase,
 	)
 
-	return run_isolated(command)
+	return isolate(command)
 }
 
-func run_isolated(command string) (*Result, error) {
+// ExecuteInteractiveCompiled runs compiled program with provided input within the isolated environment
+func ExecuteInteractiveCompiled(filebase string) (*Result, error) {
+	command := fmt.Sprintf(`cat /sandbox/%s.input.txt | timeout %s /sandbox/%s.out`, filebase, TIMEOUT, filebase)
+
+	return isolate(command)
+}
+
+// isolate runs provided command within isolated container
+func isolate(command string) (*Result, error) {
 	cmd := exec.Command("docker", "run", "--rm",
 		"--cpus=0.5",
 		"--memory=128m",
