@@ -3,10 +3,10 @@ COMMAND = gcc /sandbox/main.c ; cat /sandbox/input.txt | timeout 5s /sandbox/a.o
 
 all: $(TARGETS)
 
-build/runner: main.go
+build/runner: cmd/server/main.go
 	go build -o build/runner cmd/server/main.go
 
-build/runner_linux_amd64: main.go
+build/runner_linux_amd64: cmd/server/main.go
 	CGO_ENABlED=0 GOOS=linux GOARCH=amd64 go build -o build/runner_linux_amd64 cmd/server/main.go
 
 run:
