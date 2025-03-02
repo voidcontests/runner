@@ -18,7 +18,11 @@ func main() {
 		return
 	}
 
-	app := fiber.New()
+	c := fiber.Config{
+		EnablePrintRoutes: true,
+	}
+
+	app := fiber.New(c)
 
 	// NOTE: Sinve I don't give a shit about other content types here -
 	// `application/json` will be set automatically, as I don't want to
