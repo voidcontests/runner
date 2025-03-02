@@ -14,10 +14,31 @@ type Result struct {
 	Stderr   string
 }
 
+func Clean(filebase string) error {
+	command := fmt.Sprintf(`find /sandbox -type f -name "%s.*" -delete`, filebase)
+
+	var err error
+	_, err = run_isolated(command)
+	return err
+}
+
+func Compile(filebase string) (bool, error) {
+	command := fmt.Sprintf(
+		`gcc -o %s.out /sandbox/%s.c`,
+		filebase, filebase,
+	)
+
+	res, err := run_isolated(command)
+	if err != nil {
+		return false, err
+	}
+	return res.ExitCode == 0, nil
+}
+
 func Execute(filebase string) (*Result, error) {
 	command := fmt.Sprintf(
-		`gcc -o %s.out /sandbox/%s.c ; timeout %s /sandbox/%s.out ; EXIT_CODE=$? ; find /sandbox -type f -name "%s.*" -delete ; exit $EXIT_CODE`,
-		filebase, filebase, TIMEOUT, filebase, filebase,
+		`gcc -o %s.out /sandbox/%s.c ; timeout %s /sandbox/%s.out`,
+		filebase, filebase, TIMEOUT, filebase,
 	)
 
 	return run_isolated(command)
@@ -25,8 +46,8 @@ func Execute(filebase string) (*Result, error) {
 
 func ExecuteInteractive(filebase string) (*Result, error) {
 	command := fmt.Sprintf(
-		`gcc -o %s.out /sandbox/%s.c ; cat /sandbox/%s.input.txt | timeout %s /sandbox/%s.out ; EXIT_CODE=$? ; find /sandbox -type f -name "%s.*" -delete ; exit $EXIT_CODE`,
-		filebase, filebase, filebase, TIMEOUT, filebase, filebase,
+		`gcc -o %s.out /sandbox/%s.c ; cat /sandbox/%s.input.txt | timeout %s /sandbox/%s.out`,
+		filebase, filebase, filebase, TIMEOUT, filebase,
 	)
 
 	return run_isolated(command)
