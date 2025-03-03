@@ -27,13 +27,13 @@ type TestResponse struct {
 	Verdict    string     `json:"verdict"`
 	Passed     int        `json:"passed"`
 	Total      int        `json:"total"`
-	FailedTest FailedTest `json:"failed_test,omitempty"`
+	FailedTest FailedTest `json:"failed_test"`
 }
 
 type FailedTest struct {
-	Input          string `json:"input,omitempty"`
-	ExpectedOutput string `json:"expected_output,omitempty"`
-	ActualOutput   string `json:"actual_output,omitempty"`
+	Input          string `json:"input"`
+	ExpectedOutput string `json:"expected_output"`
+	ActualOutput   string `json:"actual_output"`
 }
 
 func TestSolution(c *fiber.Ctx) error {
