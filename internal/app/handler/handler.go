@@ -103,10 +103,17 @@ func TestSolution(c *fiber.Ctx) error {
 		} else if res.ExitCode != 0 {
 			tr.Verdict = judge.VerdictRuntimeError
 			tr.Stderr = res.Stderr
+
+			ft = &FailedTest{
+				Input:          tc.Input,
+				ExpectedOutput: tc.Output,
+				ActualOutput:   res.Stdout,
+			}
+
 			break
 		}
 
-		if ft == nil && (res.ExitCode != 0 || !match) {
+		if ft == nil && !match {
 			ft = &FailedTest{
 				Input:          tc.Input,
 				ExpectedOutput: tc.Output,
