@@ -113,7 +113,7 @@ func TestSolution(c *fiber.Ctx) error {
 			break
 		}
 
-		if ft != nil && (res.ExitCode != 0 || res.Stdout != tc.Output) {
+		if ft == nil && (res.ExitCode != 0 || res.Stdout != tc.Output) {
 			ft = &FailedTest{
 				Input:          tc.Input,
 				ExpectedOutput: tc.Output,
