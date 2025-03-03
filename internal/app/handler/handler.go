@@ -31,9 +31,9 @@ type TestResponse struct {
 }
 
 type FailedTest struct {
-	Input          string `json:"input"`
-	ExpectedOutput string `json:"expected_output"`
-	ActualOutput   string `json:"actual_output"`
+	Input          string `json:"input,omitempty"`
+	ExpectedOutput string `json:"expected_output,omitempty"`
+	ActualOutput   string `json:"actual_output,omitempty"`
 }
 
 func TestSolution(c *fiber.Ctx) error {
