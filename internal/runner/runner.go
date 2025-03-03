@@ -52,18 +52,18 @@ func Execute(filebase string) (*Result, error) {
 }
 
 // ExecuteInteractive compiles and runs program with provided input within the isolated environment
-func ExecuteInteractive(filebase string) (*Result, error) {
+func ExecuteInteractive(filebase string, input string) (*Result, error) {
 	command := fmt.Sprintf(
-		`gcc -o %s.out /sandbox/%s.c ; cat /sandbox/%s.input.txt | timeout %s /sandbox/%s.out`,
-		filebase, filebase, filebase, TIMEOUT, filebase,
+		`gcc -o %s.out /sandbox/%s.c ; echo "%s" | timeout %s /sandbox/%s.out`,
+		filebase, filebase, input, TIMEOUT, filebase,
 	)
 
 	return isolate(command)
 }
 
 // ExecuteInteractiveCompiled runs compiled program with provided input within the isolated environment
-func ExecuteInteractiveCompiled(filebase string) (*Result, error) {
-	command := fmt.Sprintf(`cat /sandbox/%s.input.txt | timeout %s /sandbox/%s.out`, filebase, TIMEOUT, filebase)
+func ExecuteInteractiveCompiled(filebase, input string) (*Result, error) {
+	command := fmt.Sprintf(`echo "%s" | timeout %s /sandbox/%s.out`, input, TIMEOUT, filebase)
 
 	return isolate(command)
 }

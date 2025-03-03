@@ -87,20 +87,7 @@ func TestSolution(c *fiber.Ctx) error {
 	var ft *FailedTest
 
 	for _, tc := range body.TCs {
-		finput, err := os.Create(fmt.Sprintf("./files/%s.input.txt", filebase))
-		if err != nil {
-			log.Error("failed to create file", slog.Any("error", err))
-			return InternalServerError(c)
-		}
-
-		_, err = finput.WriteString(tc.Input)
-		finput.Close()
-		if err != nil {
-			log.Error("failed to write to file", slog.Any("error", err))
-			return InternalServerError(c)
-		}
-
-		res, err := runner.ExecuteInteractiveCompiled(filebase)
+		res, err := runner.ExecuteInteractiveCompiled(filebase, tc.Input)
 		if err != nil {
 			log.Error("failed to execute solution", slog.Any("error", err))
 			return InternalServerError(c)
@@ -170,21 +157,7 @@ func RunSolution(c *fiber.Ctx) error {
 
 	var res *runner.Result
 	if body.Input != "" {
-		inputPath := fmt.Sprintf("./files/%s.input.txt", filebase)
-		inputFile, err := os.Create(inputPath)
-		if err != nil {
-			log.Error("failed to create file", slog.Any("error", err))
-			return InternalServerError(c)
-		}
-		defer inputFile.Close()
-
-		_, err = inputFile.WriteString(body.Input)
-		if err != nil {
-			log.Error("failed to write to file", slog.Any("error", err))
-			return InternalServerError(c)
-		}
-
-		res, err = runner.ExecuteInteractive(filebase)
+		res, err = runner.ExecuteInteractive(filebase, body.Input)
 		if err != nil {
 			log.Error("failed to execute solution", slog.Any("error", err))
 			return InternalServerError(c)
