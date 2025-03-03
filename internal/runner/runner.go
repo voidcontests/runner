@@ -24,14 +24,10 @@ func Flush(filebase string) error {
 }
 
 // Compile runs compilation process within the isolated environment
-func Compile(filebase string) (bool, error) {
+func Compile(filebase string) (*Result, error) {
 	command := fmt.Sprintf(`gcc -o %s.out /sandbox/%s.c`, filebase, filebase)
 
-	res, err := isolate(command)
-	if err != nil {
-		return false, err
-	}
-	return res.ExitCode == 0, nil
+	return isolate(command)
 }
 
 // ExecuteCompiled runs compiled program within the isolated environment

@@ -28,6 +28,7 @@ type TestResponse struct {
 	Verdict    string     `json:"verdict"`
 	Passed     int        `json:"passed"`
 	Total      int        `json:"total"`
+	Stderr     string     `json:"stderr,omitempty"`
 	FailedTest FailedTest `json:"failed_test"`
 }
 
@@ -64,18 +65,19 @@ func TestSolution(c *fiber.Ctx) error {
 		return InternalServerError(c)
 	}
 
-	ok, err := runner.Compile(filebase)
+	res, err := runner.Compile(filebase)
 	defer runner.Flush(filebase)
 	if err != nil {
 		log.Error("failed to compile solution", slog.Any("error", err))
 		return InternalServerError(c)
 	}
 
-	if !ok {
+	if res.ExitCode != 0 {
 		tr := TestResponse{
 			Verdict: judge.VerdictCompilationError,
 			Passed:  0,
 			Total:   len(body.TCs),
+			Stderr:  res.Stderr,
 		}
 		return c.Status(http.StatusOK).JSON(tr)
 	}
@@ -88,7 +90,7 @@ func TestSolution(c *fiber.Ctx) error {
 	var ft *FailedTest
 
 	for _, tc := range body.TCs {
-		res, err := runner.ExecuteInteractiveCompiled(filebase, tc.Input)
+		res, err = runner.ExecuteInteractiveCompiled(filebase, tc.Input)
 		if err != nil {
 			log.Error("failed to execute solution", slog.Any("error", err))
 			return InternalServerError(c)
@@ -100,6 +102,7 @@ func TestSolution(c *fiber.Ctx) error {
 			tr.Passed++
 		} else if res.ExitCode != 0 {
 			tr.Verdict = judge.VerdictRuntimeError
+			tr.Stderr = res.Stderr
 			break
 		}
 
