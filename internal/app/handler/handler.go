@@ -24,9 +24,16 @@ type TestRequest struct {
 }
 
 type TestResponse struct {
-	Verdict string `json:"verdict"`
-	Passed  int    `json:"passed"`
-	Total   int    `json:"total"`
+	Verdict    string     `json:"verdict"`
+	Passed     int        `json:"passed"`
+	Total      int        `json:"total"`
+	FailedTest FailedTest `json:"failed_test,omitempty"`
+}
+
+type FailedTest struct {
+	Input          string `json:"input"`
+	ExpectedOutput string `json:"expected_output"`
+	ActualOutput   string `json:"actual_output"`
 }
 
 func TestSolution(c *fiber.Ctx) error {
@@ -77,6 +84,8 @@ func TestSolution(c *fiber.Ctx) error {
 		Total:  len(body.TCs),
 	}
 
+	var ft *FailedTest
+
 	for _, tc := range body.TCs {
 		finput, err := os.Create(fmt.Sprintf("./files/%s.input.txt", filebase))
 		if err != nil {
@@ -103,6 +112,18 @@ func TestSolution(c *fiber.Ctx) error {
 			tr.Verdict = "runtime_error"
 			break
 		}
+
+		if ft != nil && (res.ExitCode != 0 || res.Stdout != tc.Output) {
+			ft = &FailedTest{
+				Input:          tc.Input,
+				ExpectedOutput: tc.Output,
+				ActualOutput:   res.Stdout,
+			}
+		}
+	}
+
+	if ft != nil {
+		tr.FailedTest = *ft
 	}
 
 	if tr.Verdict != "runtime_error" {
