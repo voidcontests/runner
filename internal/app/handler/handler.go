@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"runner/internal/judge"
 	"runner/internal/runner"
 	"time"
 
@@ -49,8 +50,8 @@ func TestSolution(c *fiber.Ctx) error {
 	fmt.Println(body)
 
 	filebase := fmt.Sprintf("%d", time.Now().Unix())
-	sourcePath := fmt.Sprintf("./files/%s.c", filebase)
-	source, err := os.Create(sourcePath)
+	filepath := fmt.Sprintf("./files/%s.c", filebase)
+	source, err := os.Create(filepath)
 	if err != nil {
 		log.Error("failed to create file", slog.Any("error", err))
 		return InternalServerError(c)
@@ -72,7 +73,7 @@ func TestSolution(c *fiber.Ctx) error {
 
 	if !ok {
 		tr := TestResponse{
-			Verdict: "compilation_error",
+			Verdict: judge.VerdictCompilationError,
 			Passed:  0,
 			Total:   len(body.TCs),
 		}
@@ -93,14 +94,16 @@ func TestSolution(c *fiber.Ctx) error {
 			return InternalServerError(c)
 		}
 
-		if res.ExitCode == 0 && res.Stdout == tc.Output {
+		match := judge.Match(res.Stdout, tc.Output)
+
+		if res.ExitCode == 0 && match {
 			tr.Passed++
 		} else if res.ExitCode != 0 {
-			tr.Verdict = "runtime_error"
+			tr.Verdict = judge.VerdictRuntimeError
 			break
 		}
 
-		if ft == nil && (res.ExitCode != 0 || res.Stdout != tc.Output) {
+		if ft == nil && (res.ExitCode != 0 || !match) {
 			ft = &FailedTest{
 				Input:          tc.Input,
 				ExpectedOutput: tc.Output,
@@ -113,11 +116,11 @@ func TestSolution(c *fiber.Ctx) error {
 		tr.FailedTest = *ft
 	}
 
-	if tr.Verdict != "runtime_error" {
+	if tr.Verdict != judge.VerdictRuntimeError {
 		if tr.Passed == tr.Total {
-			tr.Verdict = "ok"
+			tr.Verdict = judge.VerdictOK
 		} else {
-			tr.Verdict = "wrong_answer"
+			tr.Verdict = judge.VerdictWrongAnswer
 		}
 	}
 
