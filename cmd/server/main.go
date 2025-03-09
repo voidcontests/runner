@@ -24,7 +24,7 @@ func main() {
 
 	app := fiber.New(c)
 
-	// NOTE: Sinve I don't give a shit about other content types here -
+	// NOTE: Since I don't give a shit about other content types here -
 	// `application/json` will be set automatically, as I don't want to
 	// set this header on every request
 	app.Use(func(c *fiber.Ctx) error {
