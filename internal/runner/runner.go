@@ -6,7 +6,7 @@ import (
 	"os/exec"
 )
 
-const TIMEOUT = "5s"
+// const TIMEOUT = "5s"
 
 type Result struct {
 	ExitCode int
@@ -31,35 +31,35 @@ func Compile(filebase string) (*Result, error) {
 }
 
 // ExecuteCompiled runs compiled program within the isolated environment
-func ExecuteCompiled(filebase string) (*Result, error) {
-	command := fmt.Sprintf(`timeout %s /sandbox/%s.out`, TIMEOUT, filebase)
+func ExecuteCompiled(filebase string, timeLimitMS int) (*Result, error) {
+	command := fmt.Sprintf(`timeout %dms /sandbox/%s.out`, timeLimitMS, filebase)
 
 	return isolate(command)
 }
 
 // Execute compiles and runs program within the isolated environment
-func Execute(filebase string) (*Result, error) {
+func Execute(filebase string, timeLimitMS int) (*Result, error) {
 	command := fmt.Sprintf(
-		`gcc -o %s.out /sandbox/%s.c ; timeout %s /sandbox/%s.out`,
-		filebase, filebase, TIMEOUT, filebase,
+		`gcc -o %s.out /sandbox/%s.c ; timeout %dms /sandbox/%s.out`,
+		filebase, filebase, timeLimitMS, filebase,
 	)
 
 	return isolate(command)
 }
 
 // ExecuteInteractive compiles and runs program with provided input within the isolated environment
-func ExecuteInteractive(filebase string, input string) (*Result, error) {
+func ExecuteInteractive(filebase string, input string, timeLimitMS int) (*Result, error) {
 	command := fmt.Sprintf(
-		`gcc -o %s.out /sandbox/%s.c ; echo "%s" | timeout %s /sandbox/%s.out`,
-		filebase, filebase, input, TIMEOUT, filebase,
+		`gcc -o %s.out /sandbox/%s.c ; echo "%s" | timeout %dms /sandbox/%s.out`,
+		filebase, filebase, input, timeLimitMS, filebase,
 	)
 
 	return isolate(command)
 }
 
 // ExecuteInteractiveCompiled runs compiled program with provided input within the isolated environment
-func ExecuteInteractiveCompiled(filebase, input string) (*Result, error) {
-	command := fmt.Sprintf(`echo "%s" | timeout %s /sandbox/%s.out`, input, TIMEOUT, filebase)
+func ExecuteInteractiveCompiled(filebase, input string, timeLimitMS int) (*Result, error) {
+	command := fmt.Sprintf(`echo "%s" | timeout %dms /sandbox/%s.out`, input, timeLimitMS, filebase)
 
 	return isolate(command)
 }

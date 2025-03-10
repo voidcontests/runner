@@ -17,8 +17,9 @@ func Healthcheck(c *fiber.Ctx) error {
 }
 
 type TestRequest struct {
-	Code string `json:"code"`
-	TCs  []struct {
+	Code        string `json:"code"`
+	TimeLimitMS int    `json:"time_limit_ms"`
+	TCs         []struct {
 		Input  string `json:"input"`
 		Output string `json:"output"`
 	} `json:"tcs"`
@@ -88,12 +89,13 @@ func TestSolution(c *fiber.Ctx) error {
 	var ft *FailedTest
 
 	for _, tc := range body.TCs {
-		res, err = runner.ExecuteInteractiveCompiled(filebase, tc.Input)
+		res, err = runner.ExecuteInteractiveCompiled(filebase, tc.Input, body.TimeLimitMS)
 		if err != nil {
 			log.Error("failed to execute solution", slog.Any("error", err))
 			return InternalServerError(c)
 		}
 
+		// NOTE: 124 exit code returned by timeout = timeout stoped the program
 		if res.ExitCode == 124 {
 			tr.Verdict = judge.VerdictTimeLimitExceeded
 			tr.Stderr = res.Stderr
@@ -154,8 +156,9 @@ func RunSolution(c *fiber.Ctx) error {
 	log.Info("request handled", slog.String("uri", "/run"))
 
 	var body struct {
-		Code  string `json:"code"`
-		Input string `json:"input"`
+		Code        string `json:"code"`
+		Input       string `json:"input"`
+		TimeLimitMS int    `json:"time_limit_ms"`
 	}
 
 	if err := c.BodyParser(&body); err != nil {
@@ -181,22 +184,17 @@ func RunSolution(c *fiber.Ctx) error {
 
 	var res *runner.Result
 	if body.Input != "" {
-		res, err = runner.ExecuteInteractive(filebase, body.Input)
+		res, err = runner.ExecuteInteractive(filebase, body.Input, body.TimeLimitMS)
 		if err != nil {
 			log.Error("failed to execute solution", slog.Any("error", err))
 			return InternalServerError(c)
 		}
 	} else {
-		res, err = runner.Execute(filebase)
+		res, err = runner.Execute(filebase, body.TimeLimitMS)
 		if err != nil {
 			log.Error("failed to execute solution", slog.Any("error", err))
 			return InternalServerError(c)
 		}
-	}
-
-	// NOTE: 124 exit code = timeout stoped the program
-	if res.ExitCode == 124 {
-		log.Info("timeout")
 	}
 
 	response := fiber.Map{
