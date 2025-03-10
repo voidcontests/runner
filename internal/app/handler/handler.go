@@ -48,8 +48,6 @@ func TestSolution(c *fiber.Ctx) error {
 		return Error(c, http.StatusBadRequest, "invalid request body")
 	}
 
-	fmt.Println(body)
-
 	filebase := fmt.Sprintf("%d", time.Now().Unix())
 	filepath := fmt.Sprintf("./files/%s.c", filebase)
 	source, err := os.Create(filepath)
@@ -96,6 +94,19 @@ func TestSolution(c *fiber.Ctx) error {
 			return InternalServerError(c)
 		}
 
+		if res.ExitCode == 124 {
+			tr.Verdict = judge.VerdictTimeLimitExceeded
+			tr.Stderr = res.Stderr
+
+			ft = &FailedTest{
+				Input:          tc.Input,
+				ExpectedOutput: tc.Output,
+				ActualOutput:   res.Stdout,
+			}
+
+			break
+		}
+
 		match := judge.Match(res.Stdout, tc.Output)
 
 		if res.ExitCode == 0 && match {
@@ -126,7 +137,7 @@ func TestSolution(c *fiber.Ctx) error {
 		tr.FailedTest = *ft
 	}
 
-	if tr.Verdict != judge.VerdictRuntimeError {
+	if tr.Verdict == "" {
 		if tr.Passed == tr.Total {
 			tr.Verdict = judge.VerdictOK
 		} else {
@@ -138,7 +149,7 @@ func TestSolution(c *fiber.Ctx) error {
 }
 
 func RunSolution(c *fiber.Ctx) error {
-	log := slog.With(slog.String("op", "handler.TestSolution"))
+	log := slog.With(slog.String("op", "handler.RunSolution"))
 
 	log.Info("request handled", slog.String("uri", "/run"))
 
@@ -181,6 +192,11 @@ func RunSolution(c *fiber.Ctx) error {
 			log.Error("failed to execute solution", slog.Any("error", err))
 			return InternalServerError(c)
 		}
+	}
+
+	// NOTE: 124 exit code = timeout stoped the program
+	if res.ExitCode == 124 {
+		log.Info("timeout")
 	}
 
 	response := fiber.Map{
