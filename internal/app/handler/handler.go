@@ -168,7 +168,7 @@ func RunSolution(c *fiber.Ctx) error {
 	filebase := fmt.Sprintf("%d", time.Now().Unix())
 	defer runner.Flush(filebase)
 
-	sourcePath := fmt.Sprintf("./files/%s.c", filebase)
+	sourcePath := fmt.Sprintf("./files/%s.py", filebase)
 	source, err := os.Create(sourcePath)
 	if err != nil {
 		log.Error("failed to create file", slog.Any("error", err))
@@ -190,7 +190,7 @@ func RunSolution(c *fiber.Ctx) error {
 			return InternalServerError(c)
 		}
 	} else {
-		res, err = runner.Execute(filebase, body.TimeLimitMS)
+		res, err = runner.RunPython(filebase, body.TimeLimitMS)
 		if err != nil {
 			log.Error("failed to execute solution", slog.Any("error", err))
 			return InternalServerError(c)

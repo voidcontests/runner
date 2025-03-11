@@ -57,6 +57,15 @@ func ExecuteInteractive(filebase string, input string, timeLimitMS int) (*Result
 	return isolate(command)
 }
 
+func RunPython(filebase string, timeLimitMS int) (*Result, error) {
+	command := fmt.Sprintf(
+		`python3 %s.py`,
+		filebase,
+	)
+
+	return isolate(command)
+}
+
 // ExecuteInteractiveCompiled runs compiled program with provided input within the isolated environment
 func ExecuteInteractiveCompiled(filebase, input string, timeLimitMS int) (*Result, error) {
 	command := fmt.Sprintf(`echo "%s" | timeout %dms /sandbox/%s.out`, input, timeLimitMS, filebase)
@@ -74,7 +83,7 @@ func isolate(command string) (*Result, error) {
 		"--read-only",
 		"--network=none",
 		"-v", "./files:/sandbox",
-		"jus1d/void-runner",
+		"runner:latest",
 		"bash", "-c", command,
 	)
 
