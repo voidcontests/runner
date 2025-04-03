@@ -1,72 +1,40 @@
 package runner
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"os/exec"
+	"runner/internal/runner/language"
 )
 
-const (
-	LangC      = "c"
-	LangPython = "python"
-)
-
-var ErrUnknownLanguage = errors.New("runner: unknown language")
-
-func getCompilationCommand(language, filebase string) string {
-	switch language {
-	case LangC:
-		return fmt.Sprintf(`gcc -o %s.out /sandbox/%s.c`, filebase, filebase)
-	}
-
-	return ""
-}
-
-func getExecuteCommand(language, filebase, input string, timeLimitMS int) string {
-	switch language {
-	case LangC:
-		return fmt.Sprintf(`echo "%s" | timeout %0.3fs /sandbox/%s.out`, input, float64(timeLimitMS)/1000, filebase)
-	case LangPython:
-		return fmt.Sprintf(`echo "%s" | timeout %0.3fs python3 /sandbox/%s.py`, input, float64(timeLimitMS)/1000, filebase)
-	}
-
-	return ""
-}
-
-type Result struct {
+type Report struct {
 	ExitCode int
 	Stdout   string
 	Stderr   string
 }
 
-func is_compiled(language string) bool {
-	switch language {
-	case LangC:
-		return true
-	default:
-		return false
+// Compile compiles source file into binary for future executing
+func Compile(filebase, lang string) (*Report, error) {
+	l, ok := language.Get(lang)
+	if !ok {
+		return nil, language.ErrUnknownLanguage
 	}
+
+	if l.Kind != language.Compiled {
+		return nil, language.ErrNotCompiledLanguage
+	}
+
+	command := getCompilationCommand(lang, filebase)
+
+	return isolate(command)
 }
 
-func Exec(filebase, language string, timeLimitMS int, input string) (*Result, error) {
-	var r *Result
-	var err error
-	if is_compiled(language) {
-		command := getCompilationCommand(language, filebase)
-
-		r, err = isolate(command)
-		if err != nil {
-			return nil, err
-		}
-		if r.ExitCode != 0 {
-			return r, nil
-		}
-	}
-
-	command := getExecuteCommand(language, filebase, input, timeLimitMS)
+// Exec executes either compiled binary, or interprets file
+// in case of interpreted language
+func Exec(filebase, lang string, timeLimitMS int, input string) (*Report, error) {
+	command := getExecuteCommand(lang, filebase, input, timeLimitMS)
 	if command == "" {
-		return nil, ErrUnknownLanguage
+		return nil, language.ErrUnknownLanguage
 	}
 
 	return isolate(command)
@@ -81,58 +49,27 @@ func Flush(filebase string) error {
 	return err
 }
 
-// Compile runs compilation process within the isolated environment
-func Compile(filebase string) (*Result, error) {
-	command := fmt.Sprintf(`gcc -o %s.out /sandbox/%s.c`, filebase, filebase)
+func getCompilationCommand(lang, filebase string) string {
+	switch lang {
+	case language.C:
+		return fmt.Sprintf(`gcc -o %s.out /sandbox/%s.c`, filebase, filebase)
+	}
 
-	return isolate(command)
+	return ""
 }
 
-// ExecuteCompiled runs compiled program within the isolated environment
-func ExecuteCompiled(filebase string, timeLimitMS int) (*Result, error) {
-	command := fmt.Sprintf(`timeout %0.3fs /sandbox/%s.out`, float64(timeLimitMS)/1000, filebase)
+func getExecuteCommand(lang, filebase, input string, timeLimitMS int) string {
+	switch lang {
+	case language.C:
+		return fmt.Sprintf(`echo "%s" | timeout %0.3fs /sandbox/%s.out`, input, float64(timeLimitMS)/1000, filebase)
+	case language.Python:
+		return fmt.Sprintf(`echo "%s" | timeout %0.3fs python3 /sandbox/%s.py`, input, float64(timeLimitMS)/1000, filebase)
+	}
 
-	return isolate(command)
+	return ""
 }
 
-// Execute compiles and runs program within the isolated environment
-func Execute(filebase string, timeLimitMS int) (*Result, error) {
-	command := fmt.Sprintf(
-		`gcc -o %s.out /sandbox/%s.c ; timeout %0.3fs /sandbox/%s.out`,
-		filebase, filebase, float64(timeLimitMS)/1000, filebase,
-	)
-
-	return isolate(command)
-}
-
-// ExecuteInteractive compiles and runs program with provided input within the isolated environment
-func ExecuteInteractive(filebase string, input string, timeLimitMS int) (*Result, error) {
-	command := fmt.Sprintf(
-		`gcc -o %s.out /sandbox/%s.c ; echo "%s" | timeout %0.3fs /sandbox/%s.out`,
-		filebase, filebase, input, float64(timeLimitMS)/1000, filebase,
-	)
-
-	return isolate(command)
-}
-
-func RunPython(filebase string, timeLimitMS int) (*Result, error) {
-	command := fmt.Sprintf(
-		`python3 %s.py`,
-		filebase,
-	)
-
-	return isolate(command)
-}
-
-// ExecuteInteractiveCompiled runs compiled program with provided input within the isolated environment
-func ExecuteInteractiveCompiled(filebase, input string, timeLimitMS int) (*Result, error) {
-	command := fmt.Sprintf(`echo "%s" | timeout %0.3fs /sandbox/%s.out`, input, float64(timeLimitMS)/1000, filebase)
-
-	return isolate(command)
-}
-
-// isolate runs provided command within isolated container
-func isolate(command string) (*Result, error) {
+func isolate(command string) (*Report, error) {
 	cmd := exec.Command("docker", "run", "--rm",
 		"--cpus=0.5",
 		"--memory=128m",
@@ -145,7 +82,7 @@ func isolate(command string) (*Result, error) {
 		"bash", "-c", command,
 	)
 
-	var r Result
+	var r Report
 	out, err := cmd.Output()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {

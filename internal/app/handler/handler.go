@@ -5,10 +5,12 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"runner/internal/judge"
-	"runner/internal/runner"
 	"strings"
 	"time"
+
+	"runner/internal/judge"
+	"runner/internal/runner"
+	"runner/internal/runner/language"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -19,6 +21,7 @@ func Healthcheck(c *fiber.Ctx) error {
 
 type TestRequest struct {
 	Code        string `json:"code"`
+	Language    string `json:"language"`
 	TimeLimitMS int    `json:"time_limit_ms"`
 	TCs         []struct {
 		Input  string `json:"input"`
@@ -50,14 +53,20 @@ func TestSolution(c *fiber.Ctx) error {
 		return Error(c, http.StatusBadRequest, "invalid request body")
 	}
 
+	l, ok := language.Get(body.Language)
+	if !ok {
+		return Error(c, http.StatusBadRequest, "unknown language")
+	}
+
 	filebase := fmt.Sprintf("%d", time.Now().Unix())
-	filepath := fmt.Sprintf("./files/%s.c", filebase)
+	filepath := fmt.Sprintf("./files/%s.%s", filebase, l.Extension)
 	source, err := os.Create(filepath)
 	if err != nil {
 		log.Error("failed to create file", slog.Any("error", err))
 		return InternalServerError(c)
 	}
 	defer source.Close()
+	defer runner.Flush(filebase)
 
 	_, err = source.WriteString(body.Code)
 	if err != nil {
@@ -65,21 +74,24 @@ func TestSolution(c *fiber.Ctx) error {
 		return InternalServerError(c)
 	}
 
-	res, err := runner.Compile(filebase)
-	defer runner.Flush(filebase)
-	if err != nil {
-		log.Error("failed to compile solution", slog.Any("error", err))
-		return InternalServerError(c)
-	}
+	var res *runner.Report
 
-	if res.ExitCode != 0 {
-		tr := TestResponse{
-			Verdict: judge.VerdictCompilationError,
-			Passed:  0,
-			Total:   len(body.TCs),
-			Stderr:  res.Stderr,
+	if l.Kind == language.Compiled {
+		res, err := runner.Compile(filebase, l.Name)
+		if err != nil {
+			log.Error("failed to compile solution", slog.Any("error", err))
+			return InternalServerError(c)
 		}
-		return c.Status(http.StatusOK).JSON(tr)
+
+		if res.ExitCode != 0 {
+			tr := TestResponse{
+				Verdict: judge.VerdictCompilationError,
+				Passed:  0,
+				Total:   len(body.TCs),
+				Stderr:  res.Stderr,
+			}
+			return c.Status(http.StatusOK).JSON(tr)
+		}
 	}
 
 	tr := TestResponse{
@@ -90,13 +102,13 @@ func TestSolution(c *fiber.Ctx) error {
 	var ft *FailedTest
 
 	for _, tc := range body.TCs {
-		res, err = runner.ExecuteInteractiveCompiled(filebase, tc.Input, body.TimeLimitMS)
+		res, err = runner.Exec(filebase, l.Name, body.TimeLimitMS, tc.Input)
 		if err != nil {
 			log.Error("failed to execute solution", slog.Any("error", err))
 			return InternalServerError(c)
 		}
 
-		// NOTE: 124 exit code returned by timeout = timeout stoped the program
+		// NOTE: 124 exit code returned by timeout, if timeout stoped the program
 		if res.ExitCode == 124 {
 			tr.Verdict = judge.VerdictTimeLimitExceeded
 			tr.Stderr = res.Stderr
@@ -151,17 +163,6 @@ func TestSolution(c *fiber.Ctx) error {
 	return c.Status(http.StatusOK).JSON(tr)
 }
 
-func languageToExt(language string) (extension string) {
-	switch language {
-	case runner.LangC:
-		return "c"
-	case runner.LangPython:
-		return "py"
-	default:
-		return ""
-	}
-}
-
 func RunSolution(c *fiber.Ctx) error {
 	log := slog.With(slog.String("op", "handler.RunSolution"))
 
@@ -182,7 +183,12 @@ func RunSolution(c *fiber.Ctx) error {
 	filebase := fmt.Sprintf("%d", time.Now().Unix())
 	defer runner.Flush(filebase)
 
-	sourcePath := fmt.Sprintf("./files/%s.%s", filebase, languageToExt(body.Language))
+	l, ok := language.Get(body.Language)
+	if !ok {
+		return Error(c, http.StatusBadRequest, "unknown language")
+	}
+
+	sourcePath := fmt.Sprintf("./files/%s.%s", filebase, l.Extension)
 	source, err := os.Create(sourcePath)
 	if err != nil {
 		log.Error("failed to create file", slog.Any("error", err))
@@ -196,7 +202,7 @@ func RunSolution(c *fiber.Ctx) error {
 		return InternalServerError(c)
 	}
 
-	var res *runner.Result
+	var res *runner.Report
 	res, err = runner.Exec(filebase, body.Language, body.TimeLimitMS, body.Input)
 	if err != nil {
 		log.Error("failed to execute solution", slog.Any("error", err))
