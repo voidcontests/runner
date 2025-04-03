@@ -74,21 +74,21 @@ func TestSolution(c *fiber.Ctx) error {
 		return InternalServerError(c)
 	}
 
-	var res *runner.Report
+	var report runner.Report
 
 	if l.Kind == language.Compiled {
-		res, err := runner.Compile(filebase, l.Name)
+		report, err := runner.Compile(filebase, l.Name)
 		if err != nil {
 			log.Error("failed to compile solution", slog.Any("error", err))
 			return InternalServerError(c)
 		}
 
-		if res.ExitCode != 0 {
+		if report.ExitCode != 0 {
 			tr := TestResponse{
 				Verdict: judge.VerdictCompilationError,
 				Passed:  0,
 				Total:   len(body.TCs),
-				Stderr:  res.Stderr,
+				Stderr:  report.Stderr,
 			}
 			return c.Status(http.StatusOK).JSON(tr)
 		}
@@ -102,38 +102,38 @@ func TestSolution(c *fiber.Ctx) error {
 	var ft *FailedTest
 
 	for _, tc := range body.TCs {
-		res, err = runner.Exec(filebase, l.Name, body.TimeLimitMS, tc.Input)
+		report, err = runner.Exec(filebase, l.Name, body.TimeLimitMS, tc.Input)
 		if err != nil {
 			log.Error("failed to execute solution", slog.Any("error", err))
 			return InternalServerError(c)
 		}
 
 		// NOTE: 124 exit code returned by timeout, if timeout stoped the program
-		if res.ExitCode == 124 {
+		if report.ExitCode == 124 {
 			tr.Verdict = judge.VerdictTimeLimitExceeded
-			tr.Stderr = res.Stderr
+			tr.Stderr = report.Stderr
 
 			ft = &FailedTest{
 				Input:          tc.Input,
 				ExpectedOutput: tc.Output,
-				ActualOutput:   res.Stdout,
+				ActualOutput:   report.Stdout,
 			}
 
 			break
 		}
 
-		match := judge.Match(res.Stdout, tc.Output)
+		match := judge.Match(report.Stdout, tc.Output)
 
-		if res.ExitCode == 0 && match {
+		if report.ExitCode == 0 && match {
 			tr.Passed++
-		} else if res.ExitCode != 0 {
+		} else if report.ExitCode != 0 {
 			tr.Verdict = judge.VerdictRuntimeError
-			tr.Stderr = res.Stderr
+			tr.Stderr = report.Stderr
 
 			ft = &FailedTest{
 				Input:          tc.Input,
 				ExpectedOutput: tc.Output,
-				ActualOutput:   res.Stdout,
+				ActualOutput:   report.Stdout,
 			}
 
 			break
@@ -143,7 +143,7 @@ func TestSolution(c *fiber.Ctx) error {
 			ft = &FailedTest{
 				Input:          tc.Input,
 				ExpectedOutput: tc.Output,
-				ActualOutput:   res.Stdout,
+				ActualOutput:   report.Stdout,
 			}
 		}
 	}
@@ -202,17 +202,17 @@ func RunSolution(c *fiber.Ctx) error {
 		return InternalServerError(c)
 	}
 
-	var res *runner.Report
-	res, err = runner.Exec(filebase, body.Language, body.TimeLimitMS, body.Input)
+	var report runner.Report
+	report, err = runner.Exec(filebase, body.Language, body.TimeLimitMS, body.Input)
 	if err != nil {
 		log.Error("failed to execute solution", slog.Any("error", err))
 		return InternalServerError(c)
 	}
 
 	response := fiber.Map{
-		"status": res.ExitCode,
-		"stdout": res.Stdout,
-		"stderr": res.Stderr,
+		"status": report.ExitCode,
+		"stdout": report.Stdout,
+		"stderr": report.Stderr,
 	}
 
 	return c.JSON(response)
