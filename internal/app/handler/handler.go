@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"runner/internal/judge"
@@ -161,59 +160,4 @@ func TestSolution(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusOK).JSON(tr)
-}
-
-func RunSolution(c *fiber.Ctx) error {
-	log := slog.With(slog.String("op", "handler.RunSolution"))
-
-	log.Info("request handled", slog.String("uri", "/run"))
-
-	var body struct {
-		Language    string `json:"language"`
-		Code        string `json:"code"`
-		Input       string `json:"input"`
-		TimeLimitMS int    `json:"time_limit_ms"`
-	}
-
-	if err := c.BodyParser(&body); err != nil {
-		return Error(c, http.StatusBadRequest, "invalid request body")
-	}
-	body.Language = strings.ToLower(body.Language)
-
-	filebase := fmt.Sprintf("%d", time.Now().Unix())
-	defer runner.Flush(filebase)
-
-	l, ok := language.Get(body.Language)
-	if !ok {
-		return Error(c, http.StatusBadRequest, "unknown language")
-	}
-
-	sourcePath := fmt.Sprintf("./files/%s.%s", filebase, l.Extension)
-	source, err := os.Create(sourcePath)
-	if err != nil {
-		log.Error("failed to create file", slog.Any("error", err))
-		return InternalServerError(c)
-	}
-	defer source.Close()
-
-	_, err = source.WriteString(body.Code)
-	if err != nil {
-		log.Error("failed to write to file", slog.Any("error", err))
-		return InternalServerError(c)
-	}
-
-	var report runner.Report
-	report, err = runner.Exec(filebase, body.Language, body.TimeLimitMS, body.Input)
-	if err != nil {
-		log.Error("failed to execute solution", slog.Any("error", err))
-		return InternalServerError(c)
-	}
-
-	response := fiber.Map{
-		"status": report.ExitCode,
-		"stdout": report.Stdout,
-		"stderr": report.Stderr,
-	}
-
-	return c.JSON(response)
 }
