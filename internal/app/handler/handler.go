@@ -1,8 +1,9 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
-	"log/slog"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -10,12 +11,13 @@ import (
 	"runner/internal/judge"
 	"runner/internal/runner"
 	"runner/internal/runner/language"
-
-	"github.com/gofiber/fiber/v2"
 )
 
-func Healthcheck(c *fiber.Ctx) error {
-	return c.Status(http.StatusOK).SendString("ok")
+func Healthcheck(w http.ResponseWriter, r *http.Request) {
+	log.Printf("handling /healthcheck")
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
 }
 
 type TestRequest struct {
@@ -42,44 +44,45 @@ type FailedTest struct {
 	ActualOutput   string `json:"actual_output"`
 }
 
-func TestSolution(c *fiber.Ctx) error {
-	log := slog.With(slog.String("op", "handler.TestSolution"))
-
-	log.Info("request handled", slog.String("uri", "/test"))
+func TestSolution(w http.ResponseWriter, r *http.Request) {
+	log.Printf("handling /test")
 
 	var body TestRequest
-	if err := c.BodyParser(&body); err != nil {
-		return Error(c, http.StatusBadRequest, "invalid request body")
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		InvalidRequestBody(w)
+		return
 	}
 
 	l, ok := language.Get(body.Language)
 	if !ok {
-		return Error(c, http.StatusBadRequest, "unknown language")
+		WriteError(w, http.StatusBadRequest, "unknown language")
+		return
 	}
 
 	filebase := fmt.Sprintf("%d", time.Now().Unix())
 	filepath := fmt.Sprintf("./files/%s.%s", filebase, l.Extension)
 	source, err := os.Create(filepath)
 	if err != nil {
-		log.Error("failed to create file", slog.Any("error", err))
-		return InternalServerError(c)
+		log.Printf("failed to create file: %v", err)
+		InternalServerError(w)
+		return
 	}
 	defer source.Close()
 	defer runner.Flush(filebase)
 
-	_, err = source.WriteString(body.Code)
-	if err != nil {
-		log.Error("failed to write to file", slog.Any("error", err))
-		return InternalServerError(c)
+	if _, err := source.WriteString(body.Code); err != nil {
+		log.Printf("failed to write to file: %v", err)
+		InternalServerError(w)
+		return
 	}
 
 	var report runner.Report
-
 	if l.Kind == language.Compiled {
-		report, err := runner.Compile(filebase, l.Name)
+		report, err = runner.Compile(filebase, l.Name)
 		if err != nil {
-			log.Error("failed to compile solution", slog.Any("error", err))
-			return InternalServerError(c)
+			log.Printf("failed to compile solution: %v", err)
+			InternalServerError(w)
+			return
 		}
 
 		if report.ExitCode != 0 {
@@ -89,7 +92,8 @@ func TestSolution(c *fiber.Ctx) error {
 				Total:   len(body.TCs),
 				Stderr:  report.Stderr,
 			}
-			return c.Status(http.StatusOK).JSON(tr)
+			WriteJSON(w, http.StatusOK, tr)
+			return
 		}
 	}
 
@@ -98,59 +102,56 @@ func TestSolution(c *fiber.Ctx) error {
 		Total:  len(body.TCs),
 	}
 
-	var ft *FailedTest
+	var ft FailedTest
+	failed := false
 
 	for _, tc := range body.TCs {
 		report, err = runner.Exec(filebase, l.Name, body.TimeLimitMS, tc.Input)
 		if err != nil {
-			log.Error("failed to execute solution", slog.Any("error", err))
-			return InternalServerError(c)
+			log.Printf("failed to execute solution: %v", err)
+			InternalServerError(w)
+			return
 		}
 
-		// NOTE: 124 exit code returned by timeout, if timeout stoped the program
+		// if exit code 124, assume timeout
 		if report.ExitCode == 124 {
 			tr.Verdict = judge.VerdictTimeLimitExceeded
 			tr.Stderr = report.Stderr
-
-			ft = &FailedTest{
+			ft = FailedTest{
 				Input:          tc.Input,
 				ExpectedOutput: tc.Output,
 				ActualOutput:   report.Stdout,
 			}
-
+			failed = true
 			break
 		}
 
 		match := judge.Match(report.Stdout, tc.Output)
-
 		if report.ExitCode == 0 && match {
 			tr.Passed++
 		} else if report.ExitCode != 0 {
 			tr.Verdict = judge.VerdictRuntimeError
 			tr.Stderr = report.Stderr
-
-			ft = &FailedTest{
+			ft = FailedTest{
 				Input:          tc.Input,
 				ExpectedOutput: tc.Output,
 				ActualOutput:   report.Stdout,
 			}
-
+			failed = true
 			break
-		}
-
-		if ft == nil && !match {
-			ft = &FailedTest{
+		} else if failed == false && !match {
+			ft = FailedTest{
 				Input:          tc.Input,
 				ExpectedOutput: tc.Output,
 				ActualOutput:   report.Stdout,
 			}
+			failed = true
 		}
 	}
 
-	if ft != nil {
-		tr.FailedTest = *ft
+	if failed {
+		tr.FailedTest = ft
 	}
-
 	if tr.Verdict == "" {
 		if tr.Passed == tr.Total {
 			tr.Verdict = judge.VerdictOK
@@ -159,5 +160,5 @@ func TestSolution(c *fiber.Ctx) error {
 		}
 	}
 
-	return c.Status(http.StatusOK).JSON(tr)
+	WriteJSON(w, http.StatusOK, tr)
 }

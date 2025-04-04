@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"log/slog"
+	"net/http"
 	"os"
-	"runner/internal/app/handler"
 
-	"github.com/gofiber/fiber/v2"
+	"runner/internal/app/handler"
 )
 
 const PORT = 21003
@@ -18,23 +19,13 @@ func main() {
 		return
 	}
 
-	c := fiber.Config{
-		EnablePrintRoutes: true,
-	}
+	mux := http.NewServeMux()
 
-	app := fiber.New(c)
+	mux.HandleFunc("GET /healthcheck", handler.Healthcheck)
+	mux.HandleFunc("POST /test", handler.TestSolution)
 
-	// NOTE: Since I don't give a shit about other content types here -
-	// `application/json` will be set automatically, as I don't want to
-	// set this header on every request
-	app.Use(func(c *fiber.Ctx) error {
-		c.Request().Header.Set("Content-Type", "application/json")
-		return c.Next()
-	})
+	addr := fmt.Sprintf(":%d", PORT)
+	log.Printf("listening on %s", addr)
 
-	app.Get("/healthcheck", handler.Healthcheck)
-
-	app.Post("/test", handler.TestSolution)
-
-	app.Listen(fmt.Sprintf(":%d", PORT))
+	http.ListenAndServe(addr, mux)
 }
