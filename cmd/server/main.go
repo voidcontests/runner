@@ -34,7 +34,6 @@ func main() {
 
 	app.Get("/healthcheck", handler.Healthcheck)
 
-	app.Post("/run", handler.RunSolution)
 	app.Post("/test", handler.TestSolution)
 
 	app.Listen(fmt.Sprintf(":%d", PORT))
