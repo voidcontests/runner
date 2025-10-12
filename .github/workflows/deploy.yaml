@@ -22,5 +22,8 @@ jobs:
 
       - name: Build and push image
         run: |
-          docker build -t ghcr.io/voidcontests/runner:latest .
+          SHORT_SHA=${GITHUB_SHA::7}
+          docker build -t ghcr.io/voidcontests/runner:$SHORT_SHA \
+                       -t ghcr.io/voidcontests/runner:latest .
+          docker push ghcr.io/voidcontests/runner:$SHORT_SHA
           docker push ghcr.io/voidcontests/runner:latest
