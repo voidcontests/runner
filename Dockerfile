@@ -1,4 +1,4 @@
-FROM --platform=$TARGETPLATFORM debian:bullseye
+FROM debian:bullseye
 
 # installing dependencies
 RUN apt-get update && \
