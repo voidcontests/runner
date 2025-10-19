@@ -2,7 +2,7 @@ FROM debian:bullseye
 
 # installing dependencies
 RUN apt-get update && \
-    apt-get install -y gcc make libc6-dev python3 python3-pip && \
+    apt-get install -y g++ make libc6-dev python3 python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
 # create an isolated user
