@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - dev
 
 jobs:
   build-image:
@@ -23,7 +24,18 @@ jobs:
       - name: Build and push image
         run: |
           SHORT_SHA=${GITHUB_SHA::7}
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+
           docker build -t ghcr.io/voidcontests/runner:$SHORT_SHA \
-                       -t ghcr.io/voidcontests/runner:latest .
-          docker push ghcr.io/voidcontests/runner:$SHORT_SHA
-          docker push ghcr.io/voidcontests/runner:latest
+            -t ghcr.io/voidcontests/runner:$BRANCH_NAME .
+
+          if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "dev" ]]; then
+            docker push ghcr.io/voidcontests/runner:$SHORT_SHA
+          fi
+
+          docker push ghcr.io/voidcontests/runner:$BRANCH_NAME
+
+          if [[ "$BRANCH_NAME" == "master" ]]; then
+            docker tag ghcr.io/voidcontests/runner:$SHORT_SHA ghcr.io/voidcontests/runner:latest
+            docker push ghcr.io/voidcontests/runner:latest
+          fi
