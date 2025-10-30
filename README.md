@@ -1,6 +1,6 @@
 # runner
 
-This is an image for `runner` container. Some sort of a sandbox, inside which users' solutions are executed.
+This is an image for `runner` container. Some sort of a sandbox, inside which users' solutions are executed
 
 ### Deploy
 
